@@ -504,7 +504,7 @@ bool SimpSolver::eliminateVar(Var v)
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
             if (merge(ca[pos[i]], ca[neg[j]], v, clause_size) && 
-                (++cnt > cls.size() + grow || (clause_lim != -1 && clause_size > clause_lim)))
+                ((cnt += clause_size) > grow || (clause_lim != -1 && clause_size > clause_lim)))
                 return true;
 
     // Delete and store old clauses:
