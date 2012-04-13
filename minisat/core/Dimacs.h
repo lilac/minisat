@@ -65,6 +65,10 @@ static void parse_DIMACS_main(B& in, Solver& S) {
             }
         } else if (*in == 'c' || *in == 'p')
             skipLine(in);
+        else if (*in == '%') {
+            skipLine(in);
+            break;
+        }
         else{
             cnt++;
             readClause(in, S, lits);
