@@ -117,6 +117,16 @@ int main(int argc, char** argv)
             printf("|  Simplification time:  %12.2f s                                       |\n", simplified_time - parsed_time);
             printf("|                                                                             |\n"); }
 
+        if (S.probability()){
+            if (res != NULL) fprintf(res, "SAT\n"), fclose(res);
+            if (S.verbosity > 0){
+                printf("===============================================================================\n");
+                printf("Solved by probability\n");
+                S.printStats();
+                printf("\n"); }
+            printf("SATISFIABLE\n");
+            exit(10);
+        }
         if (!S.okay()){
             if (res != NULL) fprintf(res, "UNSAT\n"), fclose(res);
             if (S.verbosity > 0){

@@ -21,6 +21,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "minisat/mtl/Sort.h"
 #include "minisat/simp/SimpSolver.h"
 #include "minisat/utils/System.h"
+#include "minisat/utils/matrix.hpp"
+#include <fenv.h>
 
 using namespace Minisat;
 
@@ -102,6 +104,70 @@ void SimpSolver::releaseVar(Lit l)
         Solver::addClause(l);
 }
 
+bool SimpSolver::probability() {
+    namespace ublas = boost::numeric::ublas;
+    typedef ublas::matrix<double> matrix;
+    typedef ublas::vector<double> vector;
+
+    using namespace ublas;
+    const unsigned int n = nVars();
+    const double d = 0.99;
+
+    matrix A(2 * n, 2* n, 0);
+    vector x(2 * n, 0.5 * (1 - d));
+
+#ifdef DEBUG
+    feenableexcept(-1);
+#endif
+    for (int i = 0; i < nClauses(); ++i) {
+        Clause &c = ca[clauses[i]];
+        size_t size = c.size();
+        if (size < 2) continue;
+        for (unsigned j = 0; j < size; ++j) {
+            for (unsigned k = j + 1; k < size; ++k) {
+                A (toInt(c[k]), toInt(~c[j])) += 1 / (size - 1);
+            }
+        }
+    }
+    /*
+    for (unsigned i = 0; i < 2 * n; ++i) {
+        double sum = norm_1 (row (A, i)); 
+        if (sum != 0) row (A, i) /= sum;
+    }*/
+    A = identity_matrix<double>(2 * n) - d * A;
+    //std::cout << A << std::endl;
+
+    bool res = Minisat::Util::solve(A, x);
+
+    if (res) {
+        double p = 1;
+        printf("|  Literal probability:\n");
+        for (unsigned i = 0; i < n; ++i) {
+            int m = i << 1;
+            double sum = x(m) + x( m + 1);
+            x(m) /= sum;
+            x(m + 1) /= sum;
+            printf("p(%d)=%lf\tp(%d)=%lf\t", m, x(m), (m + 1), x(m + 1));
+        }
+        printf("\n");
+        bool sat = true;
+        for (int i = 0; i < nClauses(); ++i) {
+            Clause &c = ca[clauses[i]];
+            double fp = 1;
+            bool s = false;
+            for (int j = 0; j < c.size(); ++j) {
+                double pj = x(toInt(c[j]) ^ 1);
+                fp *= pj;
+                if (pj < 0.5) s = true;
+            }
+            p *= 1 - fp;
+            sat &= s;
+        }
+        printf("|  Satisfiable Probability: %lf\n", p);
+        res = sat;
+    }
+    return res;
+}
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
